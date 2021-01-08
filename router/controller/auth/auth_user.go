@@ -38,19 +38,19 @@ func (a *AuthorizationUserEndpoint) Get(c *gin.Context) {
 	})
 }
 
-type AUEData struct {
-	Username string `json:"username"`
-	Email string `json:"email"`
-	Password string `json:"password"`
+type AUEPutData struct {
+	Username string `json:"username" binding:"required"`
+	Email string `json:"email" binding:"required"`
+	Password string `json:"password" binding:"required"`
 }
 
 func (a *AuthorizationUserEndpoint) Put(c *gin.Context) {
 	var user *models.AuthorizationUser
-	var data AUEData
+	var data AUEPutData
 	if err := c.BindJSON(&data); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code": http.StatusBadRequest,
-			"msg": "Magpie could not bind data from this request",
+			"msg": "magpie could not bind data from this request",
 		})
 		return
 	}
@@ -71,6 +71,50 @@ func (a *AuthorizationUserEndpoint) Put(c *gin.Context) {
 		})
 		return
 	}
+	user.Password = ""  // hide password hash
+	c.JSON(http.StatusOK, gin.H{
+		"code": http.StatusOK,
+		"msg": "success",
+		"data": user,
+	})
+}
+
+type AUEPatchData struct {
+	ID string `json:"id" binding:"required"`
+	Activated bool `json:"activated"`
+}
+
+func (a *AuthorizationUserEndpoint) Patch(c *gin.Context) {
+	var user = &models.AuthorizationUser{}
+	var data AUEPatchData
+	if err := c.BindJSON(&data); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code": http.StatusBadRequest,
+			"msg": "magpie could not bind data from this request",
+		})
+		return
+	}
+
+	db := store.GetDB()
+	id, err := uuid.FromString(data.ID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code": http.StatusBadRequest,
+			"msg": "bad user id",
+		})
+		return
+	}
+	db.First(&user, id)
+	if user.ID == uuid.Nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"code": http.StatusNotFound,
+			"msg": "user not found",
+		})
+		return
+	}
+
+	user.Activated = data.Activated
+	db.Updates(&user)
 	user.Password = ""  // hide password hash
 	c.JSON(http.StatusOK, gin.H{
 		"code": http.StatusOK,
