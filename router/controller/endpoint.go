@@ -99,14 +99,20 @@ func Dispatch(e interface{}) gin.HandlerFunc {
         }
     }
 
-    fillMap("GET")
-    fillMap("POST")
-    fillMap("PUT")
-    fillMap("DELETE")
-    fillMap("PATCH")
-    fillMap("HEAD")
-    fillMap("OPTIONS")
-    fillMap("TRACE")
+    am := []string{
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE",
+        "PATCH",
+        "HEAD",
+        "OPTIONS",
+        "TRACE",
+    }
+
+    for i := range am {
+        fillMap(am[i])
+    }
 
     return func(c *gin.Context) {
         res, ok := funcMap[c.Request.Method]
