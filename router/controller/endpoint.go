@@ -17,6 +17,7 @@ type Endpoint interface {
     Patch(c *gin.Context)
     Trace(c *gin.Context)
 
+    GetPermission() string
     Register(r *gin.RouterGroup, decors ...func(handlerFunc gin.HandlerFunc) gin.HandlerFunc)
 }
 
@@ -27,57 +28,61 @@ type EndpointBase struct {
 func (ex *EndpointBase) Head(c *gin.Context) {
     c.JSON(http.StatusMethodNotAllowed, gin.H{
         "code": http.StatusMethodNotAllowed,
-        "msg": "method not allow",
+        "msg": "HEAD is not impl",
     })
 }
 
 func (ex *EndpointBase) Options(c *gin.Context) {
     c.JSON(http.StatusMethodNotAllowed, gin.H{
         "code": http.StatusMethodNotAllowed,
-        "msg": "method not allow",
+        "msg": "OPTIONS is not impl",
     })
 }
 
 func (ex *EndpointBase) Patch(c *gin.Context) {
     c.JSON(http.StatusMethodNotAllowed, gin.H{
         "code": http.StatusMethodNotAllowed,
-        "msg": "method not allow",
+        "msg": "PATCH is not impl",
     })
 }
 
 func (ex *EndpointBase) Trace(c *gin.Context) {
     c.JSON(http.StatusMethodNotAllowed, gin.H{
         "code": http.StatusMethodNotAllowed,
-        "msg": "method not allow",
+        "msg": "TRACE is not impl",
     })
 }
 
 func (ex *EndpointBase) Get(c *gin.Context) {
     c.JSON(http.StatusMethodNotAllowed, gin.H{
         "code": http.StatusMethodNotAllowed,
-        "msg": "method not allow",
+        "msg": "GET is not impl",
     })
 }
 
 func (ex *EndpointBase) Post(c *gin.Context) {
     c.JSON(http.StatusMethodNotAllowed, gin.H{
         "code": http.StatusMethodNotAllowed,
-        "msg": "method not allow",
+        "msg": "POST is not impl",
     })
 }
 
 func (ex *EndpointBase) Put(c *gin.Context) {
     c.JSON(http.StatusMethodNotAllowed, gin.H{
         "code": http.StatusMethodNotAllowed,
-        "msg": "method not allow",
+        "msg": "PUT is not impl",
     })
 }
 
 func (ex *EndpointBase) Delete(c *gin.Context) {
     c.JSON(http.StatusMethodNotAllowed, gin.H{
         "code": http.StatusMethodNotAllowed,
-        "msg": "method not allow",
+        "msg": "DELETE is not impl",
     })
+}
+
+func (ex *EndpointBase) GetPermission() string {
+    return ""
 }
 
 func Dispatch(e interface{}) gin.HandlerFunc {
@@ -129,6 +134,10 @@ func Dispatch(e interface{}) gin.HandlerFunc {
 
 func (ex *EndpointBase) Register(e interface{}, r *gin.RouterGroup, decors ...func(handlerFunc gin.HandlerFunc) gin.HandlerFunc) {
     r.Any(ex.Path, HandlerPipeline(Dispatch(e), decors...))
+    res, ok := e.(Endpoint)
+    if ok {
+        res.GetPermission()
+    }
 }
 
 func HandlerPipeline(target gin.HandlerFunc, decors ...func(handlerFunc gin.HandlerFunc) gin.HandlerFunc) gin.HandlerFunc {

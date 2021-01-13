@@ -8,4 +8,5 @@ type DatabaseConfig struct {
     DBName string `env:"MAGPIE_DB_NAME" default:"magpie_gateway"`
     DBSSLMode string `env:"MAGPIE_DB_SSL" default:"disable"`
     DBTimezone string `env:"MAGPIE_DB_TIMEZONE" default:"Asia/Shanghai"`
+    RedisURI string `env:"MAGPIE_REDIS_URI" default:"redis://localhost:6379/"`
 }

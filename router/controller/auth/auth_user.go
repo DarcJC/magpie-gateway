@@ -13,7 +13,8 @@ import (
     "net/http"
 )
 
-func generateHash(pwd string, cost int) string {
+func generateHash(pwd string) string {
+    cost := configuration.GlobalConfiguration.EncryptCost
     if cost > bcrypt.MaxCost || cost < bcrypt.MinCost {
         cost = bcrypt.DefaultCost
     }
@@ -60,7 +61,7 @@ func (a *AuthorizationUserEndpoint) Put(c *gin.Context) {
     user = &models.AuthorizationUser{
         Username:  data.Username,
         Email:     data.Email,
-        Password:  generateHash(data.Password, configuration.GlobalConfiguration.EncryptCost),
+        Password:  generateHash(data.Password),
         Activated: false,
     }
     db.Create(&user)
@@ -82,6 +83,7 @@ func (a *AuthorizationUserEndpoint) Put(c *gin.Context) {
 type AUEPatchData struct {
     ID string `json:"id" binding:"required"`
     Activated bool `json:"activated"`
+    Password string `json:"password"`
 }
 
 func (a *AuthorizationUserEndpoint) Patch(c *gin.Context) {
@@ -95,7 +97,6 @@ func (a *AuthorizationUserEndpoint) Patch(c *gin.Context) {
         return
     }
 
-    db := store.GetDB()
     id, err := uuid.FromString(data.ID)
     if err != nil {
         c.JSON(http.StatusBadRequest, gin.H{
@@ -104,6 +105,8 @@ func (a *AuthorizationUserEndpoint) Patch(c *gin.Context) {
         })
         return
     }
+
+    db := store.GetDB()
     db.First(&user, id)
     if user.ID == uuid.Nil {
         c.JSON(http.StatusNotFound, gin.H{
@@ -114,7 +117,55 @@ func (a *AuthorizationUserEndpoint) Patch(c *gin.Context) {
     }
 
     user.Activated = data.Activated
-    db.Updates(&user)
+    if data.Password != "" {
+        user.Password = generateHash(data.Password)
+    }
+    db.Save(&user)
+    user.Password = ""  // hide password hash
+    c.JSON(http.StatusOK, gin.H{
+        "code": http.StatusOK,
+        "msg": "success",
+        "data": user,
+    })
+}
+
+type AUEDeleteData struct {
+    ID string `json:"id" binding:"required"`
+}
+
+func (a *AuthorizationUserEndpoint) Delete(c *gin.Context) {
+    var data AUEDeleteData
+    var user = &models.AuthorizationUser{}
+
+    if err := c.BindJSON(&data); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "code": http.StatusBadRequest,
+            "msg": "magpie could not bind data from this request",
+        })
+        return
+    }
+
+    id, err := uuid.FromString(data.ID)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "code": http.StatusBadRequest,
+            "msg": "bad user id",
+        })
+        return
+    }
+
+    db := store.GetDB()
+    db.First(&user, id)
+
+    if user.ID == uuid.Nil {
+        c.JSON(http.StatusNotFound, gin.H{
+            "code": http.StatusNotFound,
+            "msg": "user not found",
+        })
+        return
+    }
+    user.Activated = false
+    db.Save(&user)
     user.Password = ""  // hide password hash
     c.JSON(http.StatusOK, gin.H{
         "code": http.StatusOK,

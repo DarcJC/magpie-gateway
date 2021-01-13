@@ -56,18 +56,13 @@ func setupDatabase() {
         db.Exec("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";") // enable uuid extension to use uuid_generate_v4()
 
         var err error
-        var onerror sync.Once
-        migrate := func(model interface{}) {
-            flag := false
-            onerror.Do(func() {
-                err = db.AutoMigrate(model)
-                flag = true
-            })
-            if err != nil && !flag {
-                err = db.AutoMigrate(model)
+        migrate := func(model ...interface{}) {
+            if err == nil {
+                err = db.AutoMigrate(model...)
             }
         }
-        migrate(models.AuthorizationUser{})
+        migrate(models.AuthorizationUser{}, models.PermissionNode{}, models.PermissionGroup{})
+        migrate(models.Service{})
 
         if err != nil {
             log.Fatal(err)
