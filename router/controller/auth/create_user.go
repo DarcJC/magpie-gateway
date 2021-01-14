@@ -33,12 +33,6 @@ type AuthorizationUserEndpoint struct {
     controller.EndpointBase
 }
 
-func (a *AuthorizationUserEndpoint) Get(c *gin.Context) {
-    c.JSON(200, gin.H{
-        "code": http.StatusOK,
-    })
-}
-
 type AUEPutData struct {
     Username string `json:"username" binding:"required"`
     Email string `json:"email" binding:"required"`
@@ -120,7 +114,7 @@ func (a *AuthorizationUserEndpoint) Patch(c *gin.Context) {
     if data.Password != "" {
         user.Password = generateHash(data.Password)
     }
-    db.Save(&user)
+    db.Updates(&user)
     user.Password = ""  // hide password hash
     c.JSON(http.StatusOK, gin.H{
         "code": http.StatusOK,
@@ -165,7 +159,7 @@ func (a *AuthorizationUserEndpoint) Delete(c *gin.Context) {
         return
     }
     user.Activated = false
-    db.Save(&user)
+    db.Updates(&user)
     user.Password = ""  // hide password hash
     c.JSON(http.StatusOK, gin.H{
         "code": http.StatusOK,

@@ -61,7 +61,7 @@ func setupDatabase() {
                 err = db.AutoMigrate(model...)
             }
         }
-        migrate(models.AuthorizationUser{}, models.PermissionNode{}, models.PermissionGroup{})
+        migrate(models.AuthorizationUser{}, models.PermissionNode{}, models.PermissionGroup{}, models.UserSessionKey{})
         migrate(models.Service{})
 
         if err != nil {
