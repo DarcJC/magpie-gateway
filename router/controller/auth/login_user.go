@@ -4,13 +4,11 @@ import (
     "github.com/dgrijalva/jwt-go"
     "github.com/gin-gonic/gin"
     uuid "github.com/satori/go.uuid"
-    "magpie-gateway/configuration"
     "magpie-gateway/router"
     "magpie-gateway/router/controller"
     "magpie-gateway/store"
     "magpie-gateway/store/models"
     "net/http"
-    "time"
 )
 
 type LoginUserEndpoint struct {
@@ -74,40 +72,10 @@ func (l *LoginUserEndpoint) Post(c *gin.Context) {
         return
     }
 
-    t := time.Now().Unix()
-    d, err := time.ParseDuration(configuration.GlobalConfiguration.SessionJWTExpireTime)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{
-            "code": http.StatusInternalServerError,
-            "msg": "server could not parse expire time from env var",
-        })
-        return
-    }
-    token := jwt.NewWithClaims(jwt.SigningMethodHS384, SessionJWTStruct{
-        sessionKey.Key,
-        user.ID,
-        jwt.StandardClaims{
-            ExpiresAt: time.Now().Add(d).Unix(),
-            IssuedAt:  t,
-            Issuer:    "magpie",
-            NotBefore: t,
-            Subject:   "login_session",
-        },
-    })
-
-    ts, err := token.SignedString(configuration.GlobalConfiguration.SessionJWTSecret)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{
-            "code": http.StatusInternalServerError,
-            "msg": "could not issue jwt for you",
-        })
-        return
-    }
-
     c.JSON(http.StatusCreated, gin.H{
         "code": http.StatusCreated,
         "msg": "session created",
-        "data": ts,
+        "data": sessionKey.Key,
     })
 }
 
