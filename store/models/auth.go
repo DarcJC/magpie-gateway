@@ -21,7 +21,7 @@ type AuthorizationUser struct {
     Activated bool `gorm:"default:false;"`
     Groups []PermissionGroup `gorm:"many2many:user_groups;"`
     Permissions []PermissionNode `gorm:"many2many:user_permissions;"`
-    SessionKeys []UserSessionKey `gorm:"foreignKey:UserID"`
+    SessionKeys []UserSessionKey `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 }
 
 /*
