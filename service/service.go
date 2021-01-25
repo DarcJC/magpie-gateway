@@ -5,11 +5,12 @@ import uuid "github.com/satori/go.uuid"
 type Type int8
 
 const (
-	TYPE_NONE Type = iota
-	TYPE_REST
+	TypeNone Type = iota
+	TypeRest
 )
 
 type Base struct {
 	ID uuid.UUID
+	Path string
 	Type Type
 }
