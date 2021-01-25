@@ -11,70 +11,62 @@ import (
 )
 
 
+/*
+ getValidUser check the Authorization header
+ It returns user object and true if success
+ nil, false if failed
+ */
+func getValidUser(c *gin.Context) (*models.AuthorizationUser, bool) {
+    reqToken := c.GetHeader("Authorization")
+    tokenArr := strings.SplitN(reqToken, "Basic ", 1)
+    if len(tokenArr) != 2 {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "code": http.StatusBadRequest,
+            "msg": "bad authorization header",
+        })
+        return nil, false
+    }
+    token := tokenArr[1]
+
+    db := store.GetDB()
+    session := &models.UserSessionKey{}
+
+    db.Where("key = ? AND is_valid = ?", token, true).First(&session)
+    if session.UserID == uuid.Nil || !session.Check() {
+        c.JSON(http.StatusUnauthorized, gin.H{
+            "code": http.StatusUnauthorized,
+            "msg": "bad authorization token",
+        })
+        db.Updates(session)
+        return nil, false
+    }
+
+    user := models.AuthorizationUser{}
+    db.Where("id = ?", session.UserID).First(&user)
+
+    return &user, true
+}
+
+
 func RequireLoginDecorator(f gin.HandlerFunc) gin.HandlerFunc {
     return func(c *gin.Context) {
-        reqToken := c.GetHeader("Authorization")
-        tokenArr := strings.SplitN(reqToken, "Basic ", 1)
-        if len(tokenArr) != 2 {
-            c.JSON(http.StatusBadRequest, gin.H{
-                "code": http.StatusBadRequest,
-                "msg": "bad authorization header",
-            })
+        user, ok := getValidUser(c)
+        if !ok {
             return
         }
-        token := tokenArr[1]
-
-        db := store.GetDB()
-        session := &models.UserSessionKey{}
-
-        db.Where("key = ?", token).First(&session)
-        if session.UserID == uuid.Nil {
-            c.JSON(http.StatusUnauthorized, gin.H{
-                "code": http.StatusUnauthorized,
-                "msg": "bad authorization token",
-            })
-            return
-        }
-
-        user := models.AuthorizationUser{}
-        db.Where("id = ?", session.UserID).First(&user)
-        c.Set("user", user)
+        c.Set("user", *user)
 
         f(c)
     }
 }
 
-type Permission struct {
-}
-
-func RequirePermissionDecorator(f gin.HandlerFunc, permText string) gin.HandlerFunc {
+func RequirePermissionDecorator(f gin.HandlerFunc, perm *perms.Permission) gin.HandlerFunc {
     return func(c *gin.Context) {
-        reqToken := c.GetHeader("Authorization")
-        tokenArr := strings.SplitN(reqToken, "Basic ", 1)
-        if len(tokenArr) != 2 {
-            c.JSON(http.StatusBadRequest, gin.H{
-                "code": http.StatusBadRequest,
-                "msg": "bad authorization header",
-            })
+        user, ok := getValidUser(c)
+        if !ok {
             return
         }
-        token := tokenArr[1]
-
-        db := store.GetDB()
-        session := &models.UserSessionKey{}
-
-        db.Where("key = ?", token).First(&session)
-        if session.UserID == uuid.Nil {
-            c.JSON(http.StatusUnauthorized, gin.H{
-                "code": http.StatusUnauthorized,
-                "msg": "bad authorization token",
-            })
-            return
-        }
-
-        user := models.AuthorizationUser{}
-        db.Where("id = ?", session.UserID).First(&user)
-        if !perms.TestUserPermission(&user, permText) {
+        if !perms.TestUserPermission(user, perm.String()) {
             c.JSON(http.StatusForbidden, gin.H{
                 "code": http.StatusForbidden,
                 "msg": "permission denied",
@@ -82,7 +74,7 @@ func RequirePermissionDecorator(f gin.HandlerFunc, permText string) gin.HandlerF
             return
         }
 
-        c.Set("user", user)
+        c.Set("user", *user)
 
         f(c)
     }

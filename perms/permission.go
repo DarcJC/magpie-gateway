@@ -3,8 +3,27 @@ package perms
 import (
     "fmt"
     uuid "github.com/satori/go.uuid"
+    "magpie-gateway/configuration"
     "magpie-gateway/store/models"
 )
+
+var selfID, _ = uuid.FromString(configuration.GlobalConfiguration.SID)
+
+type Permission struct {
+    ServiceID uuid.UUID
+    Key string
+}
+
+func NewSelfPermission(key string) *Permission {
+    return &Permission{
+        ServiceID: selfID,
+        Key: key,
+    }
+}
+
+func (p *Permission) String() string {
+    return fmt.Sprintf("%s::%s", p.ServiceID, p.Key)
+}
 
 func checkUserPermission(user *models.AuthorizationUser, permText string) bool {
     if user.ID != uuid.Nil {

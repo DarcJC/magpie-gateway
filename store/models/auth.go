@@ -7,6 +7,7 @@ import (
     "magpie-gateway/configuration"
     "magpie-gateway/utils"
     "strings"
+    "time"
 )
 
 /*
@@ -82,6 +83,21 @@ func NewUserSessionKey() *UserSessionKey {
         Key:     utils.RandStringBytesMaskImprSrcUnsafe(configuration.GlobalConfiguration.SessionKeyLength),
         IsValid: true,
     }
+}
+
+/*
+ Check check if the session valid
+ */
+func (u *UserSessionKey) Check() bool {
+    if !u.IsValid {
+        return false
+    }
+    t := u.CreatedAt.Add(configuration.GlobalConfiguration.SessionExpireTime)
+    if t.Before(time.Now()) {
+        u.IsValid = false
+        return false
+    }
+    return true
 }
 
 /**

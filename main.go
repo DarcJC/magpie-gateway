@@ -10,7 +10,7 @@ import (
 
 func main() {
     r := router.SetupRouter()
-    if err := r.Run(fmt.Sprintf(":%d", configuration.GlobalConfiguration.Port)); err != nil {
+    if err := r.Run(fmt.Sprintf("%s", configuration.GlobalConfiguration.Port)); err != nil {
         log.Fatal(err)
     }
 }
