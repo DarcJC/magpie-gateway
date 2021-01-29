@@ -1,21 +1,17 @@
-package rest
+package service
 
 import (
-	"fmt"
-	"github.com/gin-gonic/gin"
-	uuid "github.com/satori/go.uuid"
-	"log"
-	"magpie-gateway/service"
-	"net/http"
-	"net/http/httputil"
-	"net/url"
-	"strings"
+    "github.com/gin-gonic/gin"
+    uuid "github.com/satori/go.uuid"
+    "log"
+    "net/http"
+    "net/http/httputil"
+    "net/url"
 )
 
 type Service struct {
-	service.Base
-	BaseLocation string     // request source
-	Endpoints    []Endpoint // endpoints belong to this service
+	Base
+	Source        string     // request source
 	directorCache func(r *http.Request)
 }
 
@@ -25,21 +21,25 @@ type Service struct {
  http://xxxx.xxx:1234/magpie-gateway
  <http|https>://<domain|IP>:<port(number)>[/][path]
  */
-func New(uuid uuid.UUID, base string, path string) *Service {
+func New(uuid uuid.UUID, base string) *Service {
 	return &Service{
-		Base: service.Base{
+		Base: Base{
 			ID:   uuid,
-			Type: service.TypeRest,
-			Path: path,
+			Type: TypeRest,
+            Endpoints: nil,
 		},
-		BaseLocation: base,
-		Endpoints:    nil,
+		Source:    base,
 	}
+}
+
+func (s *Service) AddPermission(name, desc, key string) error {
+    // TODO 
+    return nil
 }
 
 func (s *Service) director() func(r *http.Request) {
 	if s.directorCache == nil {
-		u, err := url.Parse(s.BaseLocation)
+		u, err := url.Parse(s.Source)
 		if err != nil {
 			log.Printf("[WARN] Could not parse base location of service %s", s.ID)
 			return nil
@@ -47,8 +47,8 @@ func (s *Service) director() func(r *http.Request) {
 		s.directorCache = func (req *http.Request) {
 			req.URL.Scheme = u.Scheme
 			req.URL.Host = u.Host
-			path := strings.Replace(req.URL.Path, fmt.Sprintf("services/%s", s.Path), "", 1)
-			req.URL.Path = path
+			// path := strings.Replace(req.URL.Path, fmt.Sprintf("services/%s", s.Path), "", 1)
+			// TODO finish reserve proxy
 		}
 	}
 	return s.directorCache
@@ -64,6 +64,14 @@ func (s *Service) invoke(c *gin.Context) {
  */
 func (s *Service) Handler() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		path := c.GetString("path")
+		if path == "" {
+			c.JSON(http.StatusBadGateway, gin.H{
+				"code": http.StatusBadGateway,
+				"msg": "Server configuration error #1",
+			})
+			return
+		}
 		s.invoke(c)
 	}
 }

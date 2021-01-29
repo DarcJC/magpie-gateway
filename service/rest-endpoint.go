@@ -1,4 +1,4 @@
-package rest
+package service
 
 type Endpoint struct {
 	Path string

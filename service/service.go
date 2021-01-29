@@ -11,6 +11,6 @@ const (
 
 type Base struct {
 	ID uuid.UUID
-	Path string
 	Type Type
+    Endpoints     []Endpoint
 }

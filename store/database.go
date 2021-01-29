@@ -62,7 +62,7 @@ func setupDatabase() {
             }
         }
         migrate(models.AuthorizationUser{}, models.PermissionNode{}, models.PermissionGroup{}, models.UserSessionKey{})
-        migrate(models.Service{})
+        migrate(models.ServiceEndpoint{}, models.ServiceInfo{}, models.Service{})
 
         if err != nil {
             log.Fatal(err)
