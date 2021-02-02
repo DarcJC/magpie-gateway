@@ -9,4 +9,5 @@ type DatabaseConfig struct {
     DBSSLMode string `env:"MAGPIE_DB_SSL" default:"disable"`
     DBTimezone string `env:"MAGPIE_DB_TIMEZONE" default:"Asia/Shanghai"`
     RedisURI string `env:"MAGPIE_REDIS_URI" default:"redis://localhost:6379/"`
+    DBMock bool `env:"MAGPIE_DB_MOCK" default:"false"`
 }

@@ -3,6 +3,7 @@ module magpie-gateway
 go 1.15
 
 require (
+	github.com/DATA-DOG/go-sqlmock v1.5.0
 	github.com/codingconcepts/env v0.0.0-20200821220118-a8fbf8d84482
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-gonic/gin v1.6.3

@@ -26,7 +26,7 @@ func main() {
 
     serverService := &http.Server{
         Addr: fmt.Sprintf("%s", configuration.GlobalConfiguration.ServicePort),
-        Handler: service.GetServiceHandler(),
+        Handler: service.GetServiceEngine().Engine,
         ReadTimeout:  5 * time.Second,
         WriteTimeout: 10 * time.Second,
     }

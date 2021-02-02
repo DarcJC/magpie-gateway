@@ -2,12 +2,14 @@ package store
 
 import (
     "fmt"
+    "gorm.io/driver/postgres"
     "gorm.io/gorm"
     "gorm.io/gorm/logger"
     "log"
     "magpie-gateway/configuration"
     "magpie-gateway/store/models"
     "sync"
+    "github.com/DATA-DOG/go-sqlmock"
 )
 
 type Connector interface {
@@ -36,13 +38,29 @@ func GetDefaultConnector() *Connector {
 var dbInstance *gorm.DB
 var once sync.Once
 
+var Mock sqlmock.Sqlmock
+
 func GetDB() *gorm.DB {
     if dbInstance == nil {
-        dbInstance = (*GetDefaultConnector()).Connect()
-        if configuration.GlobalConfiguration.Debug {
-            dbInstance.Logger = logger.Default.LogMode(logger.Info)
+        if configuration.GlobalConfiguration.DBMock {
+            db, mock, err := sqlmock.New()
+            Mock = mock
+            if err != nil {
+                log.Fatalf("mock failed: %e", err)
+            }
+            dbInstance, err = gorm.Open(postgres.New(postgres.Config{
+                Conn: db,
+            }), &gorm.Config{})
+            if err != nil {
+                log.Fatalf("gorm mock failed: %e", err)
+            }
         } else {
-            dbInstance.Logger = logger.Default.LogMode(logger.Warn)
+            dbInstance = (*GetDefaultConnector()).Connect()
+            if configuration.GlobalConfiguration.Debug {
+                dbInstance.Logger = logger.Default.LogMode(logger.Info)
+            } else {
+                dbInstance.Logger = logger.Default.LogMode(logger.Warn)
+            }
         }
     }
     return dbInstance

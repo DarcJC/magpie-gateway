@@ -19,6 +19,7 @@ var engine *ServerEngine
 
 func GetServiceEngine() *ServerEngine {
     if engine == nil {
+        engine = &ServerEngine{}
         engine.Once.Do(func() {
             engine.Engine = gin.New()
             engine.Engine.Use(gin.Recovery())
