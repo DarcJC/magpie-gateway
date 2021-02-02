@@ -2,16 +2,29 @@ package service
 
 import (
     "errors"
+    "github.com/gin-gonic/gin"
     uuid "github.com/satori/go.uuid"
     "gorm.io/gorm"
+    "log"
     "magpie-gateway/store"
     "magpie-gateway/store/models"
+    "net/http"
+    "sync"
+    "sync/atomic"
 )
 
 type Manager struct {
     services map[string]*Service
+
+    initialized uint32
+    reloading uint32
+    mu sync.Mutex
 }
 
+/*
+ GetService return the specific service
+ id is the uuid of service
+ */
 func (m *Manager) GetService(id string) *Service {
     return m.services[id]
 }
@@ -75,15 +88,98 @@ func (m *Manager) CreateService(id, name, desc, source string) error {
     }
 
     // add service to map
-    m.services[id] = &Service{
-        Base: Base{
-            ID:        uid,
-            Type:      0,
-            Endpoints: nil,
-        },
-        Source:        source,
-    }
+    m.services[id] = New(uid, source)
 
     return nil
 
+}
+
+func (m *Manager) loadDataFromDB() error {
+    var services []models.Service
+
+    db := store.GetDB()
+    if res := db.Where("activated = ?", true).Preload("Permissions").Preload("Info").Find(&services); res.Error != nil {
+        return res.Error
+    }
+
+    for i := range services {
+        tmp := NewFromModel(&services[i])
+        m.services[tmp.ID.String()] = tmp
+        if err := m.services[tmp.ID.String()].LoadEndpoints(); err != nil {
+            return err
+        }
+    }
+
+    return nil
+}
+
+/**
+ Reload reload data from database
+ this action will clear all data in memory
+ call when reloading will do nothing
+ */
+func (m *Manager) Reload() error {
+    if atomic.LoadUint32(&m.initialized) == 1 {
+        return nil
+    }
+    atomic.StoreUint32(&m.initialized, 1)
+
+    m.mu.Lock()
+
+    m.services = make(map[string]*Service)
+    if err := m.loadDataFromDB(); err != nil {
+        return err
+    }
+
+    m.mu.Unlock()
+    atomic.StoreUint32(&m.initialized, 0)
+
+    return nil
+}
+
+func (m *Manager) Init() error {
+    if atomic.LoadUint32(&m.initialized) == 1 {
+        log.Fatal("duplicate initialization of service handler.")
+    }
+
+    m.mu.Lock()
+    defer m.mu.Unlock()
+
+    m.services = make(map[string]*Service)
+    if err := m.loadDataFromDB(); err != nil {
+        return err
+    }
+
+    atomic.StoreUint32(&m.initialized, 1)
+
+    return nil
+}
+
+func PathExistChecker(handlerFunc gin.HandlerFunc, serviceID string, endpointID uint) gin.HandlerFunc {
+    return func(context *gin.Context) {
+
+        e := GetServiceEngine()
+
+        service := e.Manager.GetService(serviceID)
+
+        if service == nil {
+            context.JSON(http.StatusNotFound, gin.H{
+                "code": http.StatusNotFound,
+                "msg": "service unloaded",
+            })
+            return
+        }
+
+        for i := range service.Endpoints {
+            if service.Endpoints[i].ID == endpointID {
+                handlerFunc(context)
+                return
+            }
+        }
+
+        context.JSON(http.StatusNotFound, gin.H{
+            "code": http.StatusNotFound,
+            "msg": "endpoint unloaded",
+        })
+    }
 }

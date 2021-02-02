@@ -1,12 +1,11 @@
 package service
 
 import (
-    "github.com/gin-gonic/gin"
     uuid "github.com/satori/go.uuid"
-    "log"
+    "magpie-gateway/store"
+    "magpie-gateway/store/models"
     "net/http"
-    "net/http/httputil"
-    "net/url"
+    "strings"
 )
 
 type Service struct {
@@ -32,46 +31,112 @@ func New(uuid uuid.UUID, base string) *Service {
 	}
 }
 
-func (s *Service) AddPermission(name, desc, key string) error {
-    // TODO 
-    return nil
-}
-
-func (s *Service) director() func(r *http.Request) {
-	if s.directorCache == nil {
-		u, err := url.Parse(s.Source)
-		if err != nil {
-			log.Printf("[WARN] Could not parse base location of service %s", s.ID)
-			return nil
-		}
-		s.directorCache = func (req *http.Request) {
-			req.URL.Scheme = u.Scheme
-			req.URL.Host = u.Host
-			// path := strings.Replace(req.URL.Path, fmt.Sprintf("services/%s", s.Path), "", 1)
-			// TODO finish reserve proxy
-		}
-	}
-	return s.directorCache
-}
-
-func (s *Service) invoke(c *gin.Context) {
-	proxy := &httputil.ReverseProxy{Director: s.director()}
-	proxy.ServeHTTP(c.Writer, c.Request)
+func NewFromModel(service *models.Service) *Service {
+    return &Service{
+        Base:          Base{
+            ID:        service.ID,
+            Type:      NewType(service.Info.Type),
+            Endpoints: service.Endpoints,
+        },
+        Source:        service.Info.Source,
+    }
 }
 
 /*
- return a handler for gin
+ AddEndpoint add a new endpoint to service
  */
-func (s *Service) Handler() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		path := c.GetString("path")
-		if path == "" {
-			c.JSON(http.StatusBadGateway, gin.H{
-				"code": http.StatusBadGateway,
-				"msg": "Server configuration error #1",
-			})
-			return
-		}
-		s.invoke(c)
-	}
+func (s *Service) AddEndpoint(endpoint models.ServiceEndpoint) error {
+    s.eLock.Lock()
+    defer s.eLock.Unlock()
+
+    // check path
+    for i := range s.Endpoints {
+        if strings.Compare(s.Endpoints[i].Path, endpoint.Path) == 0 {
+            return NewError("path existed")
+        }
+    }
+
+    endpoint.ServiceID = s.ID
+    endpoint.ID = 0  // reset id to zero value
+
+    // Add to database
+    db := store.GetDB()
+    if err := db.Create(&endpoint).Error; err != nil {
+        return err
+    }
+
+    // Add to slice
+    s.Endpoints = append(s.Endpoints, endpoint)
+
+    return nil
+}
+
+/*
+ LoadEndpoints load service's endpoints into memory
+ */
+func (s *Service) LoadEndpoints() error {
+    var es []models.ServiceEndpoint
+
+    db := store.GetDB()
+
+    s.eLock.Lock()
+    defer s.eLock.Unlock()
+
+    if err := db.Where("service_id = ?", s.ID).Find(&es).Error; err != nil {
+        return err
+    }
+
+    for i := range es {
+        s.Endpoints = append(s.Endpoints, es[i])
+    }
+
+    return nil
+}
+
+func (s *Service) ReloadEndpoints() error {
+    s.eLock.Lock()
+    s.Endpoints = make([]models.ServiceEndpoint, 10)
+    s.eLock.Unlock()
+
+    return s.LoadEndpoints()
+}
+
+/*
+ AddPermission create a new permission node for this service
+ return ModelError if name == "" or key already exist in this service
+*/
+func (s *Service) AddPermission(name, desc, key string) error {
+    if name == "" {
+        return NewError("name could not be an empty string")
+    }
+
+    db := store.GetDB()
+
+    var serv models.Service
+    if err := db.First(&serv, s.ID).Error; err != nil {
+        return err
+    }
+
+    if err := db.Preload("Permissions").First(&s, s.ID).Error; err != nil {
+        return err
+    }
+
+    for i := range serv.Permissions {
+        if strings.Compare(serv.Permissions[i].Key, key) == 0 {
+            return NewError("exist permission key")
+        }
+    }
+
+    newPerm := models.PermissionNode{
+        ServiceID:   s.ID,
+        Key:         key,
+        Name:        name,
+        Description: desc,
+    }
+
+    if err := db.Create(&newPerm).Error; err != nil {
+        return err
+    }
+
+    return nil
 }

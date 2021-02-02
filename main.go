@@ -6,7 +6,7 @@ import (
     "log"
     "magpie-gateway/configuration"
     "magpie-gateway/router"
-    "magpie-gateway/service/server"
+    "magpie-gateway/service"
     _ "magpie-gateway/store" // init database
     "net/http"
     "time"
@@ -24,10 +24,10 @@ func main() {
         WriteTimeout: 10 * time.Second,
     }
 
-    server2 := &http.Server{
+    serverService := &http.Server{
         Addr: fmt.Sprintf("%s", configuration.GlobalConfiguration.ServicePort),
-        Handler: server.ServiceHandler(),
-        ReadTimeout: 5 * time.Second,
+        Handler: service.GetServiceHandler(),
+        ReadTimeout:  5 * time.Second,
         WriteTimeout: 10 * time.Second,
     }
 
@@ -40,7 +40,7 @@ func main() {
     })
 
     g.Go(func() error {
-        err := server2.ListenAndServe()
+        err := serverService.ListenAndServe()
         if err != nil && err != http.ErrServerClosed {
             log.Fatal(err)
         }
