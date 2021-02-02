@@ -1,6 +1,7 @@
 package service
 
 import (
+    "fmt"
     uuid "github.com/satori/go.uuid"
     "magpie-gateway/store/models"
     "sync"
@@ -29,4 +30,12 @@ type Base struct {
 	Type Type
     Endpoints     []models.ServiceEndpoint
 	eLock sync.Mutex
+}
+
+func (b *Base) PermissionRequireLoginText() string {
+    return fmt.Sprintf("%s::logged", b.ID)
+}
+
+func (b *Base) PermissionRequireNoneText() string {
+    return fmt.Sprintf("%s::none", b.ID)
 }

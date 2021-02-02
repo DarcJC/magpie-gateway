@@ -82,11 +82,12 @@ func (s *Service) LoadEndpoints() error {
     s.eLock.Lock()
     defer s.eLock.Unlock()
 
-    if err := db.Where("service_id = ?", s.ID).Find(&es).Error; err != nil {
+    if err := db.Where("service_id = ?", s.ID).Preload("Permissions").Find(&es).Error; err != nil {
         return err
     }
 
     for i := range es {
+        AddToRoute(s, &es[i])
         s.Endpoints = append(s.Endpoints, es[i])
     }
 

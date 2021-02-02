@@ -40,11 +40,12 @@ func checkUserPermission(user *models.AuthorizationUser, permText string) bool {
 }
 
 func TestUserPermission(user *models.AuthorizationUser, permText string) bool {
-    r, err := getCache(fmt.Sprintf("%s::%s", user.ID, permText))
-    if err != nil {
-        res := checkUserPermission(user, permText)
-        _ = setCache(fmt.Sprintf("%s::%s", user.ID, permText), res)
-        return res
-    }
-    return r
+    // TODO fix cache
+    //r, err := getCache(fmt.Sprintf("%s::%s", user.ID, permText))
+    //if err != nil {
+    res := checkUserPermission(user, permText)
+        //_ = setCache(fmt.Sprintf("%s::%s", user.ID, permText), res)
+    return res
+    //}
+    //return r
 }

@@ -6,9 +6,11 @@ import (
     uuid "github.com/satori/go.uuid"
     "gorm.io/gorm"
     "log"
+    "magpie-gateway/perms"
     "magpie-gateway/store"
     "magpie-gateway/store/models"
     "net/http"
+    "net/http/httputil"
     "sync"
     "sync/atomic"
 )
@@ -155,12 +157,12 @@ func (m *Manager) Init() error {
     return nil
 }
 
-func PathExistChecker(handlerFunc gin.HandlerFunc, serviceID string, endpointID uint) gin.HandlerFunc {
+func PathExistChecker(handlerFunc gin.HandlerFunc, serviceID uuid.UUID, endpointID uint) gin.HandlerFunc {
     return func(context *gin.Context) {
 
         e := GetServiceEngine()
 
-        service := e.Manager.GetService(serviceID)
+        service := e.Manager.GetService(serviceID.String())
 
         if service == nil {
             context.JSON(http.StatusNotFound, gin.H{
@@ -182,4 +184,97 @@ func PathExistChecker(handlerFunc gin.HandlerFunc, serviceID string, endpointID 
             "msg": "endpoint unloaded",
         })
     }
+}
+
+/*
+ AddToRoute add endpoint into route
+ */
+func AddToRoute(s *Service, endpoint *models.ServiceEndpoint) {
+    e := GetServiceEngine()
+    e.Engine.Group(s.ID.String()).Any(endpoint.Path, HandlerPipeline(func (ctx *gin.Context) {
+        director := func(req *http.Request) {
+            r := ctx.Request
+            req = r
+            req.URL.Scheme = "http"
+            req.URL.Host = s.Source
+            req.Header["Proxy-Server"] = []string{"magpie-gateway"}
+        }
+        proxy := &httputil.ReverseProxy{Director: director}
+        proxy.ServeHTTP(ctx.Writer, ctx.Request)
+    }, func (handlerFunc gin.HandlerFunc) gin.HandlerFunc {
+        return func(ctx *gin.Context) {
+            // check permission
+            var db *gorm.DB
+            token := ctx.GetHeader("Magpie-Authorization-Token")
+            tokenIns := models.UserSessionKey{}
+            needLoginFlag := false
+            user := models.AuthorizationUser{}
+
+            for i := range endpoint.Permissions {
+                // check reserved permissions
+                if endpoint.Permissions[i].ComparePermText(s.PermissionRequireNoneText()) {
+                    handlerFunc(ctx)
+                    return
+                } else if endpoint.Permissions[i].ComparePermText(s.PermissionRequireLoginText()) {
+                    needLoginFlag = true
+                }
+            }
+
+            if token == "" {
+                ctx.JSON(http.StatusBadRequest, gin.H{
+                    "code": http.StatusBadRequest,
+                    "msg": "missing authorization header",
+                })
+                return
+            }
+            db = store.GetDB()
+            if err := db.Where("key = ?", token).First(&tokenIns).Error; err != nil {
+                ctx.JSON(http.StatusUnauthorized, gin.H{
+                    "code": http.StatusUnauthorized,
+                    "msg": "error token",
+                })
+                return
+            }
+
+            if !tokenIns.Check() {
+                ctx.JSON(http.StatusUnauthorized, gin.H{
+                    "code": http.StatusUnauthorized,
+                    "msg": "token expired",
+                })
+                return
+            }
+
+            if err := db.First(&user, tokenIns.UserID).Error; err != nil {
+                ctx.JSON(http.StatusUnauthorized, gin.H{
+                    "code": http.StatusUnauthorized,
+                    "msg": "token related user doesn't exist",
+                })
+                return
+            }
+
+            if needLoginFlag {
+                handlerFunc(ctx)
+                return
+            }
+
+            for i := range endpoint.Permissions {
+                if !perms.TestUserPermission(&user, endpoint.Permissions[i].GetPermText()) {
+                    ctx.JSON(http.StatusForbidden, gin.H{
+                        "code": http.StatusForbidden,
+                        "msg": "permission denied",
+                    })
+                    return
+                }
+            }
+            handlerFunc(ctx)
+        }
+    }))
+}
+
+func HandlerPipeline(target gin.HandlerFunc, decors ...func(handlerFunc gin.HandlerFunc) gin.HandlerFunc) gin.HandlerFunc {
+    for i := range decors {
+        d := decors[len(decors) - i - 1]
+        target = d(target)
+    }
+    return target
 }
