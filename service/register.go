@@ -54,7 +54,7 @@ func (m *Manager) CreateService(id, name, desc, source string) error {
     db := store.GetDB()
     // check database
     var service models.Service
-    err = db.First(&service, id).Error // TODO review required. I don't pretty sure could id be a inject vector.
+    err = db.Where("id = ?", id).First(&service).Error // TODO review required. I don't pretty sure could id be a inject vector.
     if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
         // other errors like connection reset will jump to this branch
         return err

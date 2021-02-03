@@ -142,3 +142,39 @@ func (s *Service) AddPermission(name, desc, key string) error {
 
     return nil
 }
+
+func (s *Service) Deactivate() error {
+    db := store.GetDB()
+
+    var service models.Service
+
+    if err := db.First(&service, s.ID).Error; err != nil {
+        return err
+    }
+
+    service.Activated = false
+
+    if err := db.Updates(&service).Error; err != nil {
+        return err
+    }
+
+    return nil
+}
+
+func (s *Service) Activate() error {
+    db := store.GetDB()
+
+    var service models.Service
+
+    if err := db.First(&service, s.ID).Error; err != nil {
+        return err
+    }
+
+    service.Activated = true
+
+    if err := db.Updates(&service).Error; err != nil {
+        return err
+    }
+
+    return nil
+}
