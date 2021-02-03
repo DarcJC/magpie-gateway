@@ -37,6 +37,7 @@ func NewFromModel(service *models.Service) *Service {
             ID:        service.ID,
             Type:      NewType(service.Info.Type),
             Endpoints: service.Endpoints,
+            Token: service.Token,
         },
         Source:        service.Info.Source,
     }

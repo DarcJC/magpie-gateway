@@ -90,7 +90,7 @@ func (m *Manager) CreateService(id, name, desc, source string) error {
     }
 
     // add service to map
-    m.services[id] = New(uid, source)
+    m.services[id] = NewFromModel(&service)
 
     return nil
 

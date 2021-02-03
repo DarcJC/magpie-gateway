@@ -30,6 +30,7 @@ type Base struct {
 	Type Type
     Endpoints     []models.ServiceEndpoint
 	eLock sync.Mutex
+	Token uuid.UUID
 }
 
 func (b *Base) PermissionRequireLoginText() string {

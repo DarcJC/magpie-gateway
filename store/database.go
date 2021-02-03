@@ -2,6 +2,7 @@ package store
 
 import (
     "fmt"
+    "github.com/DATA-DOG/go-sqlmock"
     "gorm.io/driver/postgres"
     "gorm.io/gorm"
     "gorm.io/gorm/logger"
@@ -9,7 +10,6 @@ import (
     "magpie-gateway/configuration"
     "magpie-gateway/store/models"
     "sync"
-    "github.com/DATA-DOG/go-sqlmock"
 )
 
 type Connector interface {
@@ -41,31 +41,30 @@ var once sync.Once
 var Mock sqlmock.Sqlmock
 
 func GetDB() *gorm.DB {
+    if configuration.GlobalConfiguration.DBMock {
+        db, mock, err := sqlmock.New()
+        Mock = mock
+        if err != nil {
+            log.Fatalf("mock failed: %e", err)
+        }
+        dbInstance, err = gorm.Open(postgres.New(postgres.Config{
+            Conn: db,
+        }), &gorm.Config{})
+        if err != nil {
+            log.Fatalf("gorm mock failed: %e", err)
+        }
+        return dbInstance
+    }
     if dbInstance == nil {
-        if configuration.GlobalConfiguration.DBMock {
-            db, mock, err := sqlmock.New()
-            Mock = mock
-            if err != nil {
-                log.Fatalf("mock failed: %e", err)
-            }
-            dbInstance, err = gorm.Open(postgres.New(postgres.Config{
-                Conn: db,
-            }), &gorm.Config{})
-            if err != nil {
-                log.Fatalf("gorm mock failed: %e", err)
-            }
+        dbInstance = (*GetDefaultConnector()).Connect()
+        if configuration.GlobalConfiguration.Debug {
+            dbInstance.Logger = logger.Default.LogMode(logger.Info)
         } else {
-            dbInstance = (*GetDefaultConnector()).Connect()
-            if configuration.GlobalConfiguration.Debug {
-                dbInstance.Logger = logger.Default.LogMode(logger.Info)
-            } else {
-                dbInstance.Logger = logger.Default.LogMode(logger.Warn)
-            }
+            dbInstance.Logger = logger.Default.LogMode(logger.Warn)
         }
     }
     return dbInstance
 }
-
 
 func setupDatabase() {
     once.Do(func() {
