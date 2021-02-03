@@ -25,4 +25,4 @@ jobs:
       run: go test -v ./...
       env:
         MAGPIE_DB_MOCK: true
-        Debug: false
+        MAGPIE_DEBUG: false
