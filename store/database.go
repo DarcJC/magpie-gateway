@@ -38,12 +38,12 @@ func GetDefaultConnector() *Connector {
 var dbInstance *gorm.DB
 var once sync.Once
 
-var Mock sqlmock.Sqlmock
+var Mock *sqlmock.Sqlmock
 
 func GetDB() *gorm.DB {
-    if configuration.GlobalConfiguration.DBMock {
+    if configuration.GlobalConfiguration.DBMock && Mock == nil {
         db, mock, err := sqlmock.New()
-        Mock = mock
+        Mock = &mock
         if err != nil {
             log.Fatalf("mock failed: %e", err)
         }
@@ -53,6 +53,7 @@ func GetDB() *gorm.DB {
         if err != nil {
             log.Fatalf("gorm mock failed: %e", err)
         }
+        setupDatabase()
         return dbInstance
     }
     if dbInstance == nil {
@@ -62,6 +63,7 @@ func GetDB() *gorm.DB {
         } else {
             dbInstance.Logger = logger.Default.LogMode(logger.Warn)
         }
+        setupDatabase()
     }
     return dbInstance
 }
@@ -88,5 +90,4 @@ func setupDatabase() {
 }
 
 func init() {
-    setupDatabase()
 }

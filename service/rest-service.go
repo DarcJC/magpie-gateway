@@ -154,7 +154,7 @@ func (s *Service) Deactivate() error {
 
     service.Activated = false
 
-    if err := db.Updates(&service).Error; err != nil {
+    if err := db.Save(&service).Error; err != nil {
         return err
     }
 

@@ -3,6 +3,7 @@ package service
 import (
     "fmt"
     "github.com/gin-gonic/gin"
+    "log"
     "magpie-gateway/configuration"
     "magpie-gateway/logger"
     "sync"
@@ -36,6 +37,9 @@ func GetServiceEngine() *ServerEngine {
             }
             
             engine.Manager = &Manager{}
+            if err := engine.Manager.Init(); err != nil {
+                log.Fatalf("error while init service manager %e", err)
+            }
         })
     }
     return engine

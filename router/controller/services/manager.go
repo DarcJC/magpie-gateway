@@ -82,10 +82,19 @@ func (s *ServiceManagerEndpoint) Delete(ctx *gin.Context) {
 
     e := service.GetServiceEngine()
     ser := e.Manager.GetService(u.String())
+
+    if ser == nil {
+        ctx.JSON(http.StatusNotFound, gin.H{
+            "code": http.StatusNotFound,
+            "msg": "service not found",
+        })
+        return
+    }
+
     if err := ser.Deactivate(); err != nil {
         ctx.JSON(http.StatusInternalServerError, gin.H{
             "code": http.StatusInternalServerError,
-            "msg": "could not set activated flag to this service(maybe service not found)",
+            "msg": "could not set activated flag to this service",
         })
         return
     }
